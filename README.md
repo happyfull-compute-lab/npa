@@ -1,13 +1,17 @@
-# NPA research
+# NPA Research
 
-Research notes and executable probes for **Nested Privilege Architecture (NPA)**.
+Research notes and executable probes for **Nested Privilege Architecture
+(NPA)**.
 
 ## Layout
 
 ```
-notes/    design history, analysis, qemu plans
+notes/    design history and analysis (some notes are Chinese)
 model/    executable specification probes
 ```
+
+Living spec volumes: `notes/SPEC_NPA_CORE.md`, `SPEC_A_D_*`, `SPEC_B_*`,
+`SPEC_MEM_SEC.md`, `NPA_SPEC_DRAFT.html`. The published site is `npa-spec`.
 
 ## Probes
 
@@ -18,13 +22,22 @@ python -m model.memsec
 python -m model.isolation
 ```
 
-## Repos
+## Related repositories
 
-| Repo | Role |
-|------|------|
+| Repository | Role |
+|------------|------|
 | **npa-spec** | Official Sphinx specification |
-| **npa** (this) | Research + probes |
+| **npa** (this) | Research notes and probes |
 | rpa-paper | Pre-split workspace (legacy) |
-| rpa-pysim / academic | Older tools & papers (legacy) |
+| rpa-pysim, academic | Older tools and papers (legacy) |
 
-Architecture name: **Nested Privilege Architecture (NPA)**, formerly RPA.
+Name: **Nested Privilege Architecture (NPA)**; formerly RPA.
+
+## Author
+
+Git identity: `arthurdev000 <arthur.dev@happyfull.tech>`.
+Documentation signature: **Arthur Dev**.
+
+---
+
+This work was completed with AI assistance.
