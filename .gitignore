@@ -2,3 +2,9 @@
 # Python
 __pycache__/
 .venv/
+
+# qemu-probe large/build trees
+qemu-probe/images/buildroot-*/
+qemu-probe/images/*.tar.*
+qemu-probe/images/*.elf
+qemu-probe/qemu/
