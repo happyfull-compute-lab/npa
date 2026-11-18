@@ -96,3 +96,11 @@ void npa_root_main(void)
 			asm volatile("wfi");
 	}
 }
+
+__attribute__((section(".text._start"))) void _start(void)
+{
+	asm volatile("lla sp, _stack_top");
+	npa_root_main();
+	for (;;)
+		asm volatile("wfi");
+}

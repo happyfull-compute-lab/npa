@@ -31,3 +31,11 @@ void npa_vmb_main(void)
 	for (;;)
 		asm volatile("wfi");
 }
+
+__attribute__((section(".text._start"))) void _start(void)
+{
+	asm volatile("lla sp, _stack_top");
+	npa_vmb_main();
+	for (;;)
+		asm volatile("wfi");
+}

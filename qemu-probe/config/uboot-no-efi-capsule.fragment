@@ -1,0 +1,3 @@
+# Avoid host gnutls for mkeficapsule (NPA probe does not need capsules)
+CONFIG_EFI_CAPSULE=n
+CONFIG_TOOLS_MKEFICAPSULE=n
