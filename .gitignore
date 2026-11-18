@@ -8,3 +8,11 @@ qemu-probe/images/buildroot-*/
 qemu-probe/images/*.tar.*
 qemu-probe/images/*.elf
 qemu-probe/qemu/
+
+# qemu-probe build outputs
+qemu-probe/images/buildroot-*/
+qemu-probe/images/*.tar.*
+qemu-probe/images/*.elf
+qemu-probe/images/Image
+qemu-probe/images/*.bin
+qemu-probe/qemu/
