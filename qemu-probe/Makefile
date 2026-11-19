@@ -9,8 +9,8 @@ all: images/root.elf images/vmb.elf
 images:
 	mkdir -p images
 
-images/root.elf: firmware/root/root.c firmware/root/root.ld | images
-	$(CC) $(CFLAGS) $(LDFLAGS) -T firmware/root/root.ld -o $@ firmware/root/root.c
+images/root.elf: firmware/root/root_linux.c firmware/root/root.ld | images
+	$(CC) $(CFLAGS) $(LDFLAGS) -T firmware/root/root.ld -o $@ firmware/root/root_linux.c
 
 images/vmb.elf: firmware/vmB/vmb.c firmware/root/root.ld | images
 	$(CC) $(CFLAGS) $(LDFLAGS) -T firmware/root/root.ld -o $@ firmware/vmB/vmb.c

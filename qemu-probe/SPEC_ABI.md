@@ -11,8 +11,11 @@ Guest executes `ecall` with:
 | a7  | EID     | EID    | EID  |
 | a6  | FID=0   | FID=1  | FID=2|
 | a0  | dcb_pa  | reason | dcb_pa |
-| a1  | —       | x      | —    |
+| a1  | entry (first) | x | — |
 | a2  | —       | —      | —    |
+
+RISC-V psABI: arguments in a0–a7; first entry is argument `a1`,
+not `ra`. Resume ignores `a1` (PC from Context).
 
 - **EID** = `0x4E504100` (“NPA\\0”)
 - Return in **a0**: `0` ok, negative = error (see below)

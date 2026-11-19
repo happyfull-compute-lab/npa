@@ -29,7 +29,7 @@
 
 ```text
 descend(dcb)        进入子域（call / enter）
-ascend(reason, x)   回到父域（return + 原因与参数）
+ascend(reason, x)   进入父异常入口（唯一向上原语）
 ```
 
 ### 1.1 `descend(dcb)` — 调用，不是“发射后不管”
@@ -73,8 +73,8 @@ ascend(reason, x)   回到父域（return + 原因与参数）
 
 | 旧 | 新 |
 |----|----|
-| `descend` 后父域丢控制权，只有 trap_vector | `descend` = call，父域在调用点挂起 |
-| `ascend` → 父 trap_vector | `ascend` → 父 descend 恢复点 |
+| `descend` 后父域丢控制权，只有 trap_vector | `descend` 降特权进入；续体若需要则软件存 |
+| `ascend` → 父 trap_vector | `ascend` → **父异常入口**（统一） |
 | `RETURN` = 又一次 descend | 不需要；resume 就是再 `descend` |
 | `escalate` vs `return_to_parent` | 同一 `ascend`，reason 不同 |
 | `return_to_child` | 不需要；父域再 `descend` |
@@ -139,7 +139,7 @@ EXIT       0x03   结束且不再 resume
 **最小化结论（避免驾驶舱）**：
 
 - **不设** `svc_entry` / `hypercall_vector` / `syscall_vector`。
-- 父域接子域 `ascend`：**不是** 某个独立向量，而是 **父域 `descend` 的恢复点**（D 模型自带）。
+- 父域接子域 `ascend`：**统一进父异常入口**；handler 内可按 reason 软件恢复调用点续体。
 - 因此 DCB **不需要** “父域服务向量” 字段；与 hypercall 向量表彻底告别。
 - 仅保留两个与控制流相关的入口：`entry`（进子域）、`exc`（本域异常）。  
   二者岗位不同（“从哪开始跑” vs “出错找谁”），属明显区别，故保留。
@@ -147,7 +147,7 @@ EXIT       0x03   结束且不再 resume
 ```text
 descend 首次:   PC ← dcb.entry
 descend 再入:   PC ← 子域保存点
-ascend:         PC ← 父域 descend 保存点
+ascend:         PC ← 父异常入口
 exception:      PC ← dcb.exc   （0 → ascend(EXCEPTION)）
 irq:            PC ← irq.vector（实例内，非 DCB Spec）
 ```

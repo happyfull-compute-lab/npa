@@ -9,10 +9,10 @@
 
 ## 0. 一句话
 
-> **递归特权 = 相对域树上的 call/return；特权状态在内存 DCB，执行状态在 ISA Context；向上只有 `ascend`。**
+> **递归特权 = 相对域树上的降特权调用；特权状态在内存 DCB，执行状态在 ISA Context；向上只有 `ascend`。**
 
 口号（编程模型）：**共享即信任，信任省检查。**  
-架构口号（机制）：**descend 是 call，ascend 是 return+reason。**
+架构口号（机制）：**`descend` 降特权进入；`ascend` 永远进父异常入口。**
 
 ---
 
@@ -28,6 +28,7 @@
 | P4 | **递归视角一致** | 每域自视为 self（δ=0），不引入绝对特权级编号进架构 |
 | P5 | **ISA 无关** | Spec 不绑定寄存器名、EL、Ring |
 | P6 | **可执行规范优先于修辞** | 概念必须能被模型打脸；说不清的不做大 |
+| P7 | **NPA 只碰 DCB** | 硬件仅读写 DCB；Context/入口/ABI 归 ISA 软件 |
 
 传统名映射（**非架构词汇**）：
 
@@ -36,7 +37,7 @@
 | syscall / hypercall / SMC / HVC | `ascend(SERVICE, …)` |
 | VM enter / process switch(域级) | `descend` / 再 `descend` |
 | exception return | Context 恢复 + 继续（ISA） |
-| “trap to hypervisor” | `ascend` 后父域在调用点继续 |
+| “trap to hypervisor” | `ascend` 进父异常入口 |
 
 ---
 
@@ -225,8 +226,8 @@ descend:  FREE → first → LIVE
 ## 3. 原语闭集
 
 ```text
-descend(dcb)           进入子域（首次 entry，再次 resume）
-ascend(reason, x)      回到父域 descend 恢复点（唯一向上原语）
+descend(dcb, entry)    进入子域（entry=首次 PC，按 ISA 传参）
+ascend(reason, x)      进入父异常入口（唯一向上原语）
 ```
 
 | 不设 | 原因 |
@@ -236,30 +237,44 @@ ascend(reason, x)      回到父域 descend 恢复点（唯一向上原语）
 | exit（独立原语） | `ascend(EXIT)` 或 EXIT reason |
 | descend_n | 选哪个子域是调用约定/参数，非架构第三原语 |
 | syscall / hypercall 指令 | reason + 服务号 |
+| 硬件自动回调用点 | 续体归软件；handler 按 reason 恢复 |
+| LR 兼 entry | saved_lr 双职 |
 
 ### 3.1 `descend` 语义
 
 1. 校验 `dcb.sz`（及实现定义完整性）。  
-2. **首次**（域尚未运行）：建立子域绑定，`PC ← dcb.entry`，初始 Context 由 ISA 定义。  
+2. **首次**：`PC ←` 软件传入的 `entry` 参数（非 DCB 字段）。  
 3. **再次**（resume）：恢复子域 Context，**不读** `entry`。  
-4. 父域在 **调用点之后** 挂起；恢复点 = 该点（**硬件自动保存**，不要求软件写 LR）。  
+4. 父域**不**被硬件自动挂到「descend+4」；函数式续体由父软件在 descend 前自行保存。  
 5. 切换地址空间：按 `ptb`/`ipa`（§5）。
 
 **first/resume 对软件透明（定论）：**
 
 - 软件永远只调用 **`descend(dcb)`**，不区分首次/恢复，不传 `entry` 参数。  
-- **`entry` 留在 DCB Spec**；仅硬件首进时使用。  
-- 返回点由硬件在 `descend` 时捕获（≈ ISA 的 LR/RA），`ascend` 时恢复；**禁止**要求汇编手动 `MOV LR`。  
+- 首次入口由软件按 **ISA PCS** 传入（RISC-V：`a0`=dcb，`a1`=entry）。  
 - **禁止**用 LR/返回地址兼作 `entry`（避免 `saved_lr` 双职）。  
-- first 判定 = 域 Context 有效/终止等硬件状态，对 API 不可见。
+- first 判定 = lifecycle（FREE/LIVE/TERM），对 API 不可见。
 
-### 3.2 `ascend` 语义
+### 3.2 `ascend` 语义（异常入口模型）
 
-1. 保存 Context（含父域将恢复的点由硬件记录为“descend 之后”）。  
+1. 保存子域 Context（resume 点 = `ascend` 之后）。  
 2. 切换回父域地址空间。  
-3. `PC ←` 父域调用点之后。  
-4. `reason, x` 对父域可见（ABI 传递；架构不锁寄存器）。  
+3. **`PC ←` 父域异常入口**（handler），**不是** descend 调用点。  
+4. `reason, x` 依 ABI 传给 handler。  
 5. 子域是否存活由父域策略决定（`EXIT` / 丢弃 Context / 再 descend）。
+
+**调用点返回 = 软件约定：**
+
+```text
+父软件（若要函数式）:
+  saved = save_continuation()    # 记下「descend 之后」
+  descend(dcb)
+
+handler(reason, x):
+  RESULT  → restore(saved)      # 软件恢复调用点续体
+  SERVICE → ... ; descend(dcb)
+  EXIT    → reap ; 调度
+```
 
 ### 3.3 reason 闭集
 
@@ -306,14 +321,14 @@ ascend(reason, x)      回到父域 descend 恢复点（唯一向上原语）
 off   name   owner    meaning
 0x00  sz     parent   size in words（校验）
 0x04  id     system   domain identity
-0x08  entry  parent   first-PC
-0x0C  edel   parent   exception delegation（1=子可自管，0=一律上交）
-0x10  exc    child    sync exception entry（edel=1 且 exc≠0 → 本地）
-0x14  irq    system   interrupt handle（0 → 无）
-0x18  ipa    parent   address constraint table（形态见 §5）
-0x1C  ptb    child    page-table base（0 → 继承）
-0x20  child  parent   current child DCB（0 → none）
-0x24  sec    system   security group handle
+0x08  edel   parent   exception delegation（1=子可自管，0=一律上交）
+0x0C  exc    child    sync exception entry（edel=1 且 exc≠0 → 本地）
+0x10  irq    system   interrupt handle（0 → 无）
+0x14  ipa    parent   address constraint table（形态见 §5）
+0x18  ptb    child    page-table base（0 → 继承）
+0x1C  child  parent   current child DCB（0 → none）
+0x20  sec    system   security group handle
+0x24  rsv    —        reserved (Spec 对齐)
 
 Spec = 10 words (40B)；Impdef 从 0x28 起（如 isa）
 ```
@@ -498,8 +513,8 @@ Security Subsystem
 ## 11. 不变量（实现验收 / 打脸用）
 
 **I1** 指令级向上控制转移仅有 `ascend`。  
-**I2** 父域恢复点唯一 = `descend` 调用点之后。  
-**I3** `entry` 不保存返回地址；返回点不进 Spec。  
+**I2** `ascend` 后控制权进入 **父异常入口**；回到 descend 调用点是软件 handler 策略，非硬件保证。  
+**I3** 返回点与首次入口均由 ISA/软件传递；不进 DCB Spec。  
 **I4** DCB Spec 无 `saved_*` / `irq_saved_*` / ABI 专有字段。  
 **I5** `exc==0` 时同步异常必达父域（或根终止），无静默丢失。  
 **I6** INHERIT（`ptb==0`）路径无地址叠加。  

@@ -100,7 +100,7 @@ Spec Field = 0x00–0x27（10 words / 40 bytes）
 
 | 设置者 | 字段 |
 |--------|------|
-| parent | `sz`, `entry`, `edel`, `ipa`, `child` |
+| parent | `sz`, `edel`, `ipa`, `child` |
 | child | `exc`, `ptb` |
 | system | `id`, `irq`, `sec` |
 
